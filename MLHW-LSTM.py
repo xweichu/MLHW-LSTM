@@ -5,7 +5,7 @@ import re
 import datetime
 from random import randint
 import math
-
+#test github
 
 def data_process(filename):
     raw_data = []
@@ -56,9 +56,9 @@ def getTrainBatch(train_data, ids, batchSize, maxSeqLength):
     for i in range(batchSize):
         num = randint(1, len(train_data) - 1)
         if train_data[num][0] == 'realDonaldTrump':
-            labels.append([1, 0])
+            labels.append([1,0])
         else:
-            labels.append([0, 1])
+            labels.append([0,1])
         arr[i] = ids[num - 1:num]
     return arr, labels
 
@@ -70,11 +70,11 @@ word_list, word_vectors = loadGloveModel("glove.twitter.27B.50d.txt")
 ids = np.load('ids.npy')
 
 batchSize = 27
-lstmUnits = 128
+lstmUnits = 64
 numClasses = 2
 maxSeqLength = 150
 numDimensions = 50
-iterations = 8000
+iterations = 100000
 
 # training................................................................................
 tf.reset_default_graph()
@@ -84,7 +84,7 @@ data = tf.Variable(tf.zeros([batchSize, maxSeqLength, numDimensions]), dtype=tf.
 data = tf.nn.embedding_lookup(word_vectors, input_data)
 
 lstmCell = tf.contrib.rnn.BasicLSTMCell(lstmUnits)
-#lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=0.75)
+#lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=0.50)
 value, _ = tf.nn.dynamic_rnn(lstmCell, data, dtype=tf.float64)
 
 weight = tf.Variable(tf.truncated_normal([lstmUnits, numClasses]))
@@ -96,11 +96,13 @@ bias = tf.cast(bias, tf.float64)
 weight = tf.cast(weight, tf.float64)
 prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
 
+#test
 correctPred = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
 accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float64))
 
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
-optimizer = tf.train.GradientDescentOptimizer(0.01).minimize(loss)
+optimizer = tf.train.AdamOptimizer().minimize(loss)
+#optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
 
 sess = tf.InteractiveSession()
 saver = tf.train.Saver()
@@ -112,22 +114,23 @@ logdir = "tensorboard/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "/
 writer = tf.summary.FileWriter(logdir, sess.graph)
 
 
-for i in range(iterations):
-   #Next Batch of reviews
-   nextBatch, nextBatchLabels = getTrainBatch(train_data,ids,batchSize,maxSeqLength);
-   print(nextBatch)
-   sess.run(optimizer, {input_data: nextBatch, labels: nextBatchLabels})
-
-   #Write summary to Tensorboard
-   if (i % 20 == 0):
-       summary = sess.run(merged, {input_data: nextBatch, labels: nextBatchLabels})
-       writer.add_summary(summary, i)
-
-   #Save the network every 10,000 training iterations
-   if (i % 1000 == 0 and i != 0):
-       save_path = saver.save(sess, "models/pretrained_lstm.ckpt", global_step=i)
-       print("saved to %s" % save_path)
-writer.close()
+# for i in range(iterations):
+#    #Next Batch of reviews
+#    nextBatch, nextBatchLabels = getTrainBatch(train_data,ids,batchSize,maxSeqLength);
+#    print(nextBatch)
+#    print(nextBatchLabels)
+#    sess.run(optimizer, {input_data: nextBatch, labels: nextBatchLabels})
+#
+#    #Write summary to Tensorboard
+#    if (i % 50 == 0):
+#        summary = sess.run(merged, {input_data: nextBatch, labels: nextBatchLabels})
+#        writer.add_summary(summary, i)
+#
+#    #Save the network every 10,000 training iterations
+#    if (i % 1000 == 0 and i != 0):
+#        save_path = saver.save(sess, "models/pretrained_lstm.ckpt", global_step=i)
+#        print("saved to %s" % save_path)
+# writer.close()
 
 
 # for j in range(10):
