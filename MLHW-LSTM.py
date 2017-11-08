@@ -114,23 +114,23 @@ logdir = "tensorboard/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "/
 writer = tf.summary.FileWriter(logdir, sess.graph)
 
 
-# for i in range(iterations):
-#    #Next Batch of reviews
-#    nextBatch, nextBatchLabels = getTrainBatch(train_data,ids,batchSize,maxSeqLength);
-#    print(nextBatch)
-#    print(nextBatchLabels)
-#    sess.run(optimizer, {input_data: nextBatch, labels: nextBatchLabels})
-#
-#    #Write summary to Tensorboard
-#    if (i % 50 == 0):
-#        summary = sess.run(merged, {input_data: nextBatch, labels: nextBatchLabels})
-#        writer.add_summary(summary, i)
-#
-#    #Save the network every 10,000 training iterations
-#    if (i % 1000 == 0 and i != 0):
-#        save_path = saver.save(sess, "models/pretrained_lstm.ckpt", global_step=i)
-#        print("saved to %s" % save_path)
-# writer.close()
+for i in range(iterations):
+   #Next Batch of reviews
+   nextBatch, nextBatchLabels = getTrainBatch(train_data,ids,batchSize,maxSeqLength);
+   print(nextBatch)
+   print(nextBatchLabels)
+   sess.run(optimizer, {input_data: nextBatch, labels: nextBatchLabels})
+
+   #Write summary to Tensorboard
+   if (i % 50 == 0):
+       summary = sess.run(merged, {input_data: nextBatch, labels: nextBatchLabels})
+       writer.add_summary(summary, i)
+
+   #Save the network every 10,000 training iterations
+   if (i % 1000 == 0 and i != 0):
+       save_path = saver.save(sess, "models/pretrained_lstm.ckpt", global_step=i)
+       print("saved to %s" % save_path)
+writer.close()
 
 
 # for j in range(10):
