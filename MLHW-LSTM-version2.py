@@ -37,7 +37,8 @@ def get_idmatrix(train_data, word_list, seqlen):
     ids = np.zeros((len(train_data), seqlen), dtype='int32')
     i = 0
     for sentence in train_data:
-        split = sentence[1].split().reverse()
+        split = sentence[1].split()
+        split.reverse()
         j = 1 
         strip_special_chars = re.compile("[^A-Za-z0-9 ]+")
         for word in split:
