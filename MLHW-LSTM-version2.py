@@ -5,6 +5,7 @@ import re
 import datetime
 from random import randint
 import math
+import csv
 #test github
 
 def data_process(filename):
@@ -126,15 +127,15 @@ last = tf.cast(last, tf.float32)
 #weight = tf.cast(weight, tf.float32)
 prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
 
-'''
 #test
+'''
 correctPred = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
 accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
 
 loss = - tf.reduce_mean(labels * tf.log(prediction))
 #loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits = (tf.matmul(last, weight) + bias), labels = labels))
-optimizer = tf.train.AdamOptimizer().minimize(loss)
-#optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
+#optimizer = tf.train.AdamOptimizer().minimize(loss)
+optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
 
 sess = tf.InteractiveSession()
 saver = tf.train.Saver()
@@ -192,6 +193,13 @@ writer.close()
 #
 # writer.close()
 
+def getTestBatch(test_ids, batchSize, cursor):
+    batch_seqlen = []
+    vec = test_ids[cursor: cursor + batchSize]
+    batch_seqlen = np.count_nonzero(vec, axis=1)
+    return vec, (batch_seqlen - 1)
+    
+
 
 test_data = data_process('test.csv')
 test_ids = get_idmatrix(test_data,word_list)
@@ -200,8 +208,13 @@ sess = tf.InteractiveSession()
 saver = tf.train.Saver()
 saver.restore(sess, tf.train.latest_checkpoint('models'))
 
-for i in range(len(test_data)):
-    nextBatch = test_ids[i:i + batchSize]
-    # nextBatchLabels = np.array
-    print(sess.run(prediction, {input_data: nextBatch}))
-    i = i+batchSize
+with open('pred.csv', 'wb') as csvfile:
+    spamwriter = csv.writer(csvfile, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    spamwriter.writerow(['id', 'realDonaldTrump', 'HillaryClinton'])
+    for i in range(len(test_data) / batchSize):
+        #nextBatch = test_ids[i:i + batchSize]
+        nextBatch, seq = getTestBatch(test_ids, batchSize, i * batchSize)
+        # nextBatchLabels = np.array
+        pred = sess.run(prediction, {input_data: nextBatch, keep_prob:0.5, seqlen: seq})
+        for idx in range(np.shape(pred)[0]):
+            spamwriter.writerow([i * batchSize + idx, "%.6f" % (pred[idx][0]), "%.6f" % (pred[idx][1])])
