@@ -33,17 +33,17 @@ def loadGloveModel(gloveFile):
     return wordlist, vectors
 
 
-def get_idmatrix(train_data, word_list):
-    ids = np.zeros((len(train_data), 150), dtype='int32')
+def get_idmatrix(train_data, word_list, seqlen):
+    ids = np.zeros((len(train_data), seqlen), dtype='int32')
     i = 0
     for sentence in train_data:
-        split = sentence[1].split()
-        j = 0
+        split = sentence[1].split().reverse()
+        j = 1 
         strip_special_chars = re.compile("[^A-Za-z0-9 ]+")
         for word in split:
             word = re.sub(strip_special_chars, "", word.lower())
             try:
-                ids[i][j] = word_list.index(word)
+                ids[i][seqlen - j] = word_list.index(word)
             except ValueError:
                 ids[i][j] = 410055
             j = j + 1
@@ -74,16 +74,13 @@ def getTrainBatch(train_data, ids, batchSize, maxSeqLength):
         else:
             labels.append([0,1])
         arr[i] = ids[num - 1:num]
+        '''
         num = np.count_nonzero(arr[i])
         batch_seqlen.append( num - 1 if num > 0 else 0)
+        '''
+        batch_seqlen.append(maxSeqLength - 1)
     return arr, labels, batch_seqlen
 
-
-train_data = data_process('train.csv')
-word_list, word_vectors = loadGloveModel("glove.twitter.27B.50d.txt")
-#ids = get_idmatrix(train_data,word_list)
-#np.save('ids',ids)
-ids = np.load('ids.npy')
 
 batchSize = 27
 lstmUnits = 64
@@ -92,6 +89,12 @@ numClasses = 2
 maxSeqLength = 150
 numDimensions = 50
 iterations = 100000
+
+train_data = data_process('train.csv')
+word_list, word_vectors = loadGloveModel("glove.twitter.27B.50d.txt")
+ids = get_idmatrix(train_data,word_list, maxSeqLength)
+np.save('ids',ids)
+#ids = np.load('ids.npy')
 
 # training................................................................................
 tf.reset_default_graph()
@@ -128,7 +131,6 @@ last = tf.cast(last, tf.float32)
 prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
 
 #test
-'''
 correctPred = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
 accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
 
@@ -163,7 +165,6 @@ for i in range(iterations):
        save_path = saver.save(sess, "models/pretrained_lstm.ckpt", global_step=i)
        print("saved to %s" % save_path)
 writer.close()
-'''
 
 
 # for j in range(10):
@@ -196,13 +197,15 @@ writer.close()
 def getTestBatch(test_ids, batchSize, cursor):
     batch_seqlen = []
     vec = test_ids[cursor: cursor + batchSize]
-    batch_seqlen = np.count_nonzero(vec, axis=1)
-    return vec, (batch_seqlen - 1)
+#    batch_seqlen = np.count_nonzero(vec, axis=1)
+    for i in range(batchSize):
+        batch_seqlen.append(maxSeqLength - 1)
+    return vec, batch_seqlen
     
 
 
 test_data = data_process('test.csv')
-test_ids = get_idmatrix(test_data,word_list)
+test_ids = get_idmatrix(test_data,word_list, maxSeqLength)
 
 sess = tf.InteractiveSession()
 saver = tf.train.Saver()
