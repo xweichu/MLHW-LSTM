@@ -3,7 +3,8 @@ import numpy as np
 import tensorflow as tf
 import re
 import datetime
-from random import randint
+#from random import randint
+import random
 import math
 import csv
 #test github
@@ -38,13 +39,12 @@ def get_idmatrix(train_data, word_list, seqlen):
     i = 0
     for sentence in train_data:
         split = sentence[1].split()
-        split.reverse()
-        j = 1 
+        j = 0 
         strip_special_chars = re.compile("[^A-Za-z0-9 ]+")
         for word in split:
             word = re.sub(strip_special_chars, "", word.lower())
             try:
-                ids[i][seqlen - j] = word_list.index(word)
+                ids[i][j] = word_list.index(word)
             except ValueError:
                 ids[i][j] = 410055
             j = j + 1
@@ -68,22 +68,20 @@ def getTrainBatch(train_data, ids, batchSize, maxSeqLength):
     labels = []
     batch_seqlen = []
     arr = np.zeros([batchSize, maxSeqLength])
+    rd = random.sample(range(len(train_data)), batchSize)
     for i in range(batchSize):
-        num = randint(1, len(train_data) - 1)
+        num = rd[i]
         if train_data[num][0] == 'realDonaldTrump':
             labels.append([1,0])
         else:
             labels.append([0,1])
-        arr[i] = ids[num - 1:num]
-        '''
-        num = np.count_nonzero(arr[i])
-        batch_seqlen.append( num - 1 if num > 0 else 0)
-        '''
-        batch_seqlen.append(maxSeqLength - 1)
+        arr[i] = ids[num]
+        n = np.count_nonzero(arr[i])
+        batch_seqlen.append( n - 1 if n > 0 else 0)
     return arr, labels, batch_seqlen
 
 
-batchSize = 27
+batchSize = 189
 lstmUnits = 64
 layer_num = 2
 numClasses = 2
@@ -107,9 +105,8 @@ data = tf.cast(data, tf.float32)
 
 stacked_rnn = []
 keep_prob = tf.placeholder(tf.float32)
-for i in range(2):
+for i in range(layer_num):
     lstmCell = tf.contrib.rnn.BasicLSTMCell(lstmUnits)
-    #lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=0.50)
     lstm_cell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, input_keep_prob=1.0, output_keep_prob=keep_prob)
     stacked_rnn.append(lstm_cell)
 mlstm_cell = tf.contrib.rnn.MultiRNNCell(stacked_rnn, state_is_tuple=True)
@@ -117,6 +114,7 @@ mlstm_cell = tf.contrib.rnn.MultiRNNCell(stacked_rnn, state_is_tuple=True)
 init_state = mlstm_cell.zero_state(batchSize, dtype=tf.float32)
 
 value, _ = tf.nn.dynamic_rnn(mlstm_cell, inputs=data, initial_state=init_state, time_major=False)
+value = tf.nn.dropout(value, keep_prob)
 
 weight = tf.Variable(tf.truncated_normal([lstmUnits, numClasses]), dtype=tf.float32)
 bias = tf.Variable(tf.constant(0.1, shape=[numClasses]), dtype=tf.float32)
@@ -129,16 +127,19 @@ last= tf.gather(tf.reshape(value, [-1, lstmUnits]), index)
 last = tf.cast(last, tf.float32)
 #bias = tf.cast(bias, tf.float32)
 #weight = tf.cast(weight, tf.float32)
-prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
+logits = tf.matmul(last, weight) + bias
+prediction = tf.nn.softmax(logits)
 
+'''
 #test
 correctPred = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
 accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
 
-loss = - tf.reduce_mean(labels * tf.log(prediction))
-#loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits = (tf.matmul(last, weight) + bias), labels = labels))
+#loss = - tf.reduce_mean(labels * tf.log(prediction))
+loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels = labels))
+#loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=labels))
 #optimizer = tf.train.AdamOptimizer().minimize(loss)
-optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
+optimizer = tf.train.GradientDescentOptimizer(0.01).minimize(loss)
 
 sess = tf.InteractiveSession()
 saver = tf.train.Saver()
@@ -166,6 +167,7 @@ for i in range(iterations):
        save_path = saver.save(sess, "models/pretrained_lstm.ckpt", global_step=i)
        print("saved to %s" % save_path)
 writer.close()
+'''
 
 
 # for j in range(10):
@@ -198,9 +200,7 @@ writer.close()
 def getTestBatch(test_ids, batchSize, cursor):
     batch_seqlen = []
     vec = test_ids[cursor: cursor + batchSize]
-#    batch_seqlen = np.count_nonzero(vec, axis=1)
-    for i in range(batchSize):
-        batch_seqlen.append(maxSeqLength - 1)
+    batch_seqlen = np.count_nonzero(vec, axis=1)
     return vec, batch_seqlen
     
 
